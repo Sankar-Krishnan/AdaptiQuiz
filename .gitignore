@@ -1,0 +1,24 @@
+# Secrets
+.env
+frontend/.env
+frontend/.env.local
+frontend/.env.production
+
+# Local tool config
+.claude/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+
+# Node
+node_modules/
+frontend/dist/
+
+# OS
+.DS_Store
