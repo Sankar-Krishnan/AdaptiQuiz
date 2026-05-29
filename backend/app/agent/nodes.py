@@ -1,5 +1,6 @@
 import json
-from groq import Groq
+from openai import OpenAI, RateLimitError
+from tenacity import retry, wait_exponential, stop_after_attempt, retry_if_exception_type
 from app.config import settings
 from app.agent.state import GraphState
 from app.agent.prompts import (
@@ -8,12 +9,21 @@ from app.agent.prompts import (
     FEEDBACK_GENERATOR_SYSTEM,
 )
 
-_client = Groq(api_key=settings.groq_api_key)
+_client = OpenAI(
+    base_url="https://models.inference.ai.azure.com",
+    api_key=settings.github_token,
+)
 
 
+@retry(
+    retry=retry_if_exception_type(RateLimitError),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    stop=stop_after_attempt(3),
+    reraise=True,
+)
 def _chat(system: str, user: str, json_mode: bool = False) -> str:
     kwargs = {
-        "model": settings.groq_model,
+        "model": settings.llm_model,
         "messages": [
             {"role": "system", "content": system},
             {"role": "user", "content": user},

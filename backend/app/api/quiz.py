@@ -1,6 +1,7 @@
 import uuid
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
+from openai import RateLimitError
 from app.agent.graph import quiz_runnable
 from app.db.repositories import SessionRepository
 from app.models.student import Session
@@ -60,6 +61,8 @@ def start_quiz(request: StartRequest):
 
     try:
         result = quiz_runnable.invoke(initial_state)
+    except RateLimitError:
+        raise HTTPException(status_code=429, detail="AI service rate limit exceeded. Please wait a moment and try again.")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Agent error: {e}")
 
@@ -109,6 +112,8 @@ def answer_quiz(request: AnswerRequest):
 
     try:
         result = quiz_runnable.invoke(state)
+    except RateLimitError:
+        raise HTTPException(status_code=429, detail="AI service rate limit exceeded. Please wait a moment and try again.")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Agent error: {e}")
 

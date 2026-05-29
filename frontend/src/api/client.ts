@@ -4,7 +4,7 @@ import type { AnswerRequest, AnswerResponse, StartQuizRequest, StartQuizResponse
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8000',
   headers: { 'Content-Type': 'application/json' },
-  timeout: 30000,   // Groq can take a moment on the free tier
+  timeout: 60000,   // GitHub Models may retry on rate limit — allow up to 60s
 })
 
 // Attach request timestamp for debugging

@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Card } from 'primereact/card'
 import { Button } from 'primereact/button'
+import { Message } from 'primereact/message'
 import { ProgressSpinner } from 'primereact/progressspinner'
 import QuestionCard from '@/components/QuestionCard'
 import AnswerInput from '@/components/AnswerInput'
@@ -21,7 +22,18 @@ interface Props {
 export default function QuizPage({ session, currentQuestion, onSessionUpdate }: Props) {
   const [phase, setPhase] = useState<Phase>('answering')
   const [lastResponse, setLastResponse] = useState<AnswerResponse | null>(null)
+  const [slowLoad, setSlowLoad] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const navigate = useNavigate()
+
+  useEffect(() => {
+    if (phase !== 'loading') {
+      setSlowLoad(false)
+      return
+    }
+    const timer = setTimeout(() => setSlowLoad(true), 5000)
+    return () => clearTimeout(timer)
+  }, [phase])
 
   if (!session) {
     return (
@@ -35,6 +47,7 @@ export default function QuizPage({ session, currentQuestion, onSessionUpdate }: 
   const total = session.history.length
 
   async function handleAnswer(answer: string) {
+    setErrorMsg(null)
     setPhase('loading')
     try {
       const res = await submitAnswer({
@@ -61,8 +74,7 @@ export default function QuizPage({ session, currentQuestion, onSessionUpdate }: 
       onSessionUpdate(updatedSession, res.next_question)
       setPhase('feedback')
     } catch (err) {
-      // Surface error via navigate or keep on page — use alert for simplicity
-      alert((err as Error).message)
+      setErrorMsg((err as Error).message)
       setPhase('answering')
     }
   }
@@ -93,13 +105,21 @@ export default function QuizPage({ session, currentQuestion, onSessionUpdate }: 
         {/* Answer / loading / feedback */}
         {phase === 'answering' && (
           <Card>
+            {errorMsg && (
+              <Message severity="warn" text={errorMsg} className="w-full mb-3" />
+            )}
             <AnswerInput onSubmit={handleAnswer} loading={false} />
           </Card>
         )}
 
         {phase === 'loading' && (
-          <div className="flex justify-content-center p-4">
+          <div className="flex flex-column align-items-center gap-3 p-4">
             <ProgressSpinner style={{ width: '48px', height: '48px' }} />
+            {slowLoad && (
+              <p className="m-0 text-500 text-sm text-center">
+                Taking a bit longer than usual — awaiting AI response, rate limit retry in progress...
+              </p>
+            )}
           </div>
         )}
 

@@ -1,24 +1,22 @@
 name: Trigger auto deployment for adaptiquiz-backend
 
-# When this action will be executed
 on:
-  # Automatically trigger it when detected changes in repo
   push:
-    branches: 
+    branches:
       [ main ]
     paths:
-    - '**'
+    - 'backend/**'
     - '.github/workflows/adaptiquiz-backend-AutoDeployTrigger-8b7155b3-8ccd-47fb-9531-c6a71268411d.yml'
 
-  # Allow manual trigger 
-  workflow_dispatch:      
+  workflow_dispatch:
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    permissions: 
-      id-token: write #This is required for requesting the OIDC JWT Token
-      contents: read #Required when GH token is used to authenticate with private repo
+    permissions:
+      id-token: write
+      contents: read
+      packages: write
 
     steps:
       - name: Checkout to the branch
@@ -34,16 +32,11 @@ jobs:
       - name: Build and push container image to registry
         uses: azure/container-apps-deploy-action@v2
         with:
-          appSourcePath: ${{ github.workspace }}
-          _dockerfilePathKey_: _dockerfilePath_
-          _targetLabelKey_: _targetLabel_
+          appSourcePath: ${{ github.workspace }}/backend
+          dockerfilePath: Dockerfile
           registryUrl: ghcr.io
-          registryUsername: ${{ secrets.ADAPTIQUIZBACKEND_REGISTRY_USERNAME }}
-          registryPassword: ${{ secrets.ADAPTIQUIZBACKEND_REGISTRY_PASSWORD }}
+          registryUsername: ${{ github.repository_owner }}
+          registryPassword: ${{ secrets.GITHUB_TOKEN }}
           containerAppName: adaptiquiz-backend
           resourceGroup: adaptiquiz-rg
-          imageToBuild: ghcr.io/adaptiquiz-backend:${{ github.sha }}
-          _buildArgumentsKey_: |
-            _buildArgumentsValues_
-
-
+          imageToBuild: ghcr.io/${{ github.repository_owner }}/adaptiquiz-backend:${{ github.sha }}

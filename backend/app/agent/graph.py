@@ -1,6 +1,6 @@
 from typing import TypedDict
 from langgraph.graph import StateGraph, END
-from groq import Groq
+from openai import OpenAI
 from app.config import settings
 from app.agent.state import GraphState
 from app.agent.nodes import generate_question, evaluate_answer, generate_feedback
@@ -47,10 +47,13 @@ class _SimpleState(TypedDict):
     answer: str
 
 
-def _call_groq(state: _SimpleState) -> dict:
-    client = Groq(api_key=settings.groq_api_key)
+def _call_llm(state: _SimpleState) -> dict:
+    client = OpenAI(
+        base_url="https://models.inference.ai.azure.com",
+        api_key=settings.github_token,
+    )
     response = client.chat.completions.create(
-        model=settings.groq_model,
+        model=settings.llm_model,
         messages=[
             {"role": "system", "content": "You are a helpful assistant. Answer clearly and concisely."},
             {"role": "user", "content": state["question"]},
@@ -61,9 +64,9 @@ def _call_groq(state: _SimpleState) -> dict:
 
 def _build_simple_graph():
     g = StateGraph(_SimpleState)
-    g.add_node("call_groq", _call_groq)
-    g.set_entry_point("call_groq")
-    g.add_edge("call_groq", END)
+    g.add_node("call_llm", _call_llm)
+    g.set_entry_point("call_llm")
+    g.add_edge("call_llm", END)
     return g.compile()
 
 

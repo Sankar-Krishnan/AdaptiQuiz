@@ -3,9 +3,9 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    # Groq
-    groq_api_key: str
-    groq_model: str = "llama-3.1-8b-instant"
+    # GitHub Models (Azure AI inference)
+    github_token: str
+    llm_model: str = "gpt-4o-mini"
 
     # App
     env: str = "local"
@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = Path(__file__).resolve().parents[2] / ".env"
         env_file_encoding = "utf-8"
+        extra = "ignore"  # silently drop unknown env vars (e.g. old GROQ_* keys)
 
 
 # Single instance imported everywhere
