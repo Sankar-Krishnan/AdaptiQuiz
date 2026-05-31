@@ -12,4 +12,10 @@ class GraphState(TypedDict):
     student_answer: str      # empty string = no answer yet (start flow)
     evaluation: dict         # {correct: bool, explanation: str, key_concept: str}
     feedback: str            # human-readable tutor feedback
-    next_action: str         # "escalate" | "scaffold" | "same"
+    next_action: str         # "escalate" | "scaffold" | "same" | "retry"
+    grade_level: str         # "4"–"12" or "professional"
+    retry_count: int         # retries used on current question; reset to 0 by generate_question
+    hint: str                # hint text; empty until give_hint runs
+    needs_hint: bool         # routing flag set by check_retry each invocation
+    prior_insights: dict     # loaded at /quiz/start from insights container; {} for first session
+    insights: dict           # written after extract_insights; not used by the quiz graph

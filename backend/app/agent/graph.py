@@ -3,7 +3,13 @@ from langgraph.graph import StateGraph, END
 from openai import OpenAI
 from app.config import settings
 from app.agent.state import GraphState
-from app.agent.nodes import generate_question, evaluate_answer, generate_feedback
+from app.agent.nodes import (
+    generate_question,
+    evaluate_answer,
+    generate_feedback,
+    check_retry,
+    give_hint,
+)
 
 
 # --- Quiz graph ---
@@ -15,11 +21,18 @@ def _route_entry(state: GraphState) -> str:
     return "evaluate_answer"
 
 
+def _route_after_check(state: GraphState) -> str:
+    """Route to hint or feedback based on check_retry result."""
+    return "give_hint" if state.get("needs_hint") else "generate_feedback"
+
+
 def build_quiz_graph():
     graph = StateGraph(GraphState)
 
     graph.add_node("generate_question", generate_question)
     graph.add_node("evaluate_answer", evaluate_answer)
+    graph.add_node("check_retry", check_retry)
+    graph.add_node("give_hint", give_hint)
     graph.add_node("generate_feedback", generate_feedback)
 
     graph.set_conditional_entry_point(
@@ -30,7 +43,16 @@ def build_quiz_graph():
         },
     )
 
-    graph.add_edge("evaluate_answer", "generate_feedback")
+    graph.add_edge("evaluate_answer", "check_retry")
+    graph.add_conditional_edges(
+        "check_retry",
+        _route_after_check,
+        {
+            "give_hint": "give_hint",
+            "generate_feedback": "generate_feedback",
+        },
+    )
+    graph.add_edge("give_hint", END)
     graph.add_edge("generate_feedback", "generate_question")
     graph.add_edge("generate_question", END)
 

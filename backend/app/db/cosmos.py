@@ -36,6 +36,7 @@ def setup_cosmos() -> None:
         containers = [
             {"id": "students", "partition_key": "/student_id"},
             {"id": "sessions", "partition_key": "/student_id"},
+            {"id": "insights", "partition_key": "/student_id"},
         ]
         for cfg in containers:
             db.create_container_if_not_exists(

@@ -1,5 +1,17 @@
 import axios from 'axios'
-import type { AnswerRequest, AnswerResponse, StartQuizRequest, StartQuizResponse } from '@/types/quiz'
+import type {
+  AnswerRequest,
+  AnswerResponse,
+  StartQuizRequest,
+  StartQuizResponse,
+  SignUpRequest,
+  LoginRequest,
+  AuthResponse,
+  InsightsData,
+  FinishResponse,
+} from '@/types/quiz'
+
+const TOKEN_KEY = 'aq_token'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? 'http://localhost:8000',
@@ -7,9 +19,13 @@ const api = axios.create({
   timeout: 60000,   // GitHub Models may retry on rate limit — allow up to 60s
 })
 
-// Attach request timestamp for debugging
+// Attach JWT and request timestamp on every request
 api.interceptors.request.use((config) => {
   config.headers['X-Request-Time'] = new Date().toISOString()
+  const token = localStorage.getItem(TOKEN_KEY)
+  if (token) {
+    config.headers['Authorization'] = `Bearer ${token}`
+  }
   return config
 })
 
@@ -20,23 +36,44 @@ api.interceptors.response.use(
     if (!error.response) {
       return Promise.reject(new Error('Could not reach the server. Please try again.'))
     }
-    const detail = error.response.data?.detail ?? error.response.statusText ?? 'An unexpected error occurred.'
+    const detail =
+      error.response.data?.detail ??
+      error.response.statusText ??
+      'An unexpected error occurred.'
     return Promise.reject(new Error(detail))
   },
 )
 
+// --- Auth ---
+
+export async function signUp(payload: SignUpRequest): Promise<AuthResponse> {
+  const { data } = await api.post<AuthResponse>('/auth/signup', payload)
+  return data
+}
+
+export async function login(payload: LoginRequest): Promise<AuthResponse> {
+  const { data } = await api.post<AuthResponse>('/auth/login', payload)
+  return data
+}
+
+// --- Quiz ---
+
 export async function startQuiz(payload: StartQuizRequest): Promise<StartQuizResponse> {
-  // Backend expects student_id; generate a simple one client-side if not provided
-  const body = {
-    ...payload,
-    student_id: payload.student_id ?? `student_${Date.now()}`,
-  }
-  const { data } = await api.post<StartQuizResponse>('/quiz/start', body)
-  // Backend doesn't echo student_id back, so attach it from the request
-  return { ...data, student_id: body.student_id }
+  const { data } = await api.post<StartQuizResponse>('/quiz/start', payload)
+  return data
 }
 
 export async function submitAnswer(payload: AnswerRequest): Promise<AnswerResponse> {
   const { data } = await api.post<AnswerResponse>('/quiz/answer', payload)
+  return data
+}
+
+export async function finishQuiz(session_id: string): Promise<FinishResponse> {
+  const { data } = await api.post<FinishResponse>('/quiz/finish', { session_id })
+  return data
+}
+
+export async function getInsights(): Promise<InsightsData[]> {
+  const { data } = await api.get<InsightsData[]>('/quiz/insights')
   return data
 }

@@ -17,7 +17,7 @@ export default function QuestionCard({ question, difficulty, questionNumber }: P
 
   return (
     <Card header={header} className="shadow-3">
-      <p className="m-0 text-2xl line-height-3 font-medium text-900">{question}</p>
+      <p className="m-0 text-xl md:text-2xl line-height-3 font-medium text-900">{question}</p>
     </Card>
   )
 }

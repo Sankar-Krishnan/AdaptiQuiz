@@ -43,3 +43,10 @@ jobs:
           containerAppName: adaptiquiz-backend
           resourceGroup: adaptiquiz-rg
           imageToBuild: ghcr.io/${{ env.OWNER }}/adaptiquiz-backend:${{ github.sha }}
+          environmentVariables: >
+            GITHUB_TOKEN=${{ secrets.ADAPTIQUIZ_GITHUB_TOKEN }}
+            ENV=azure
+            FRONTEND_URL=${{ secrets.ADAPTIQUIZ_FRONTEND_URL }}
+            COSMOS_ENDPOINT=${{ secrets.ADAPTIQUIZ_COSMOS_ENDPOINT }}
+            COSMOS_KEY=${{ secrets.ADAPTIQUIZ_COSMOS_KEY }}
+            DISABLE_SSL_VERIFY=false

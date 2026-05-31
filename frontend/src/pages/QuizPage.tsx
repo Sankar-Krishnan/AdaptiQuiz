@@ -8,22 +8,24 @@ import QuestionCard from '@/components/QuestionCard'
 import AnswerInput from '@/components/AnswerInput'
 import FeedbackPanel from '@/components/FeedbackPanel'
 import ScoreBar from '@/components/ScoreBar'
-import { submitAnswer } from '@/api/client'
-import type { AnswerResponse, QuizSession, HistoryEntry } from '@/types/quiz'
+import { submitAnswer, finishQuiz } from '@/api/client'
+import type { AnswerResponse, QuizSession, HistoryEntry, InsightsData } from '@/types/quiz'
 
-type Phase = 'answering' | 'loading' | 'feedback'
+type Phase = 'answering' | 'loading' | 'hint' | 'feedback'
 
 interface Props {
   session: QuizSession | null
   currentQuestion: string
   onSessionUpdate: (session: QuizSession, nextQuestion: string) => void
+  onInsightsReady: (insights: InsightsData) => void
 }
 
-export default function QuizPage({ session, currentQuestion, onSessionUpdate }: Props) {
+export default function QuizPage({ session, currentQuestion, onSessionUpdate, onInsightsReady }: Props) {
   const [phase, setPhase] = useState<Phase>('answering')
   const [lastResponse, setLastResponse] = useState<AnswerResponse | null>(null)
   const [slowLoad, setSlowLoad] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [finishing, setFinishing] = useState(false)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -52,27 +54,32 @@ export default function QuizPage({ session, currentQuestion, onSessionUpdate }: 
     try {
       const res = await submitAnswer({
         session_id: session!.session_id,
-        student_id: session!.student_id,
         answer,
       })
       setLastResponse(res)
 
-      const entry: HistoryEntry = {
-        question: currentQuestion,
-        answer,
-        correct: res.correct,
-        difficulty: session!.difficulty,
+      if (res.next_action === 'retry') {
+        // Hint path — question stays the same, no score change, no history entry yet
+        setPhase('hint')
+      } else {
+        // Normal path — record result, move to next question
+        const entry: HistoryEntry = {
+          question: currentQuestion,
+          answer,
+          correct: res.correct,
+          difficulty: session!.difficulty,
+        }
+        const newScore = session!.score + (res.correct ? 1 : 0)
+        const updatedSession: QuizSession = {
+          ...session!,
+          score: newScore,
+          streak: res.streak,
+          difficulty: res.difficulty,
+          history: [...session!.history, entry],
+        }
+        onSessionUpdate(updatedSession, res.next_question)
+        setPhase('feedback')
       }
-      const newScore = session!.score + (res.correct ? 1 : 0)
-      const updatedSession: QuizSession = {
-        ...session!,
-        score: newScore,
-        streak: res.streak,
-        difficulty: res.difficulty,
-        history: [...session!.history, entry],
-      }
-      onSessionUpdate(updatedSession, res.next_question)
-      setPhase('feedback')
     } catch (err) {
       setErrorMsg((err as Error).message)
       setPhase('answering')
@@ -84,8 +91,18 @@ export default function QuizPage({ session, currentQuestion, onSessionUpdate }: 
     setLastResponse(null)
   }
 
-  function handleFinish() {
-    navigate('/results')
+  async function handleFinish() {
+    if (!session) return
+    setFinishing(true)
+    try {
+      const res = await finishQuiz(session.session_id)
+      onInsightsReady(res.insights)
+    } catch {
+      // Non-fatal — navigate to results even if insights extraction fails
+    } finally {
+      setFinishing(false)
+      navigate('/results')
+    }
   }
 
   return (
@@ -123,6 +140,28 @@ export default function QuizPage({ session, currentQuestion, onSessionUpdate }: 
           </div>
         )}
 
+        {phase === 'hint' && lastResponse && (
+          <Card>
+            <div className="flex flex-column gap-3">
+              <Message
+                severity="warn"
+                className="w-full"
+                content={
+                  <div className="flex flex-column gap-1">
+                    <span className="font-semibold">Here's a hint</span>
+                    <span>{lastResponse.hint}</span>
+                  </div>
+                }
+              />
+              <p className="m-0 text-500 text-sm">
+                <i className="pi pi-info-circle mr-1" />
+                You have one more attempt on this question.
+              </p>
+              <AnswerInput onSubmit={handleAnswer} loading={false} />
+            </div>
+          </Card>
+        )}
+
         {phase === 'feedback' && lastResponse && (
           <Card>
             <div className="flex flex-column gap-4">
@@ -131,19 +170,22 @@ export default function QuizPage({ session, currentQuestion, onSessionUpdate }: 
                 explanation={lastResponse.explanation}
                 feedback={lastResponse.feedback}
               />
-              <div className="flex gap-3">
+              <div className="flex flex-column sm:flex-row gap-3">
                 <Button
                   label="Next Question"
                   icon="pi pi-arrow-right"
                   className="flex-1"
                   onClick={handleNext}
+                  disabled={finishing}
                 />
                 <Button
-                  label="Finish Quiz"
-                  icon="pi pi-flag"
+                  label={finishing ? 'Saving insights...' : 'Finish Quiz'}
+                  icon={finishing ? undefined : 'pi pi-flag'}
                   severity="secondary"
                   className="flex-1"
                   onClick={handleFinish}
+                  loading={finishing}
+                  disabled={finishing}
                 />
               </div>
             </div>

@@ -52,13 +52,15 @@ student_answer set    →  evaluate_answer  →  generate_feedback  →  generat
 The routing function is `_route_entry`. The `student_answer` field in `GraphState` is the signal — empty means "start flow", non-empty means "answer flow". This means both endpoints invoke the same `quiz_runnable.invoke(state)` call; the graph self-routes based on what's in state.
 
 **Nodes** (`app/agent/nodes.py`):
-- `generate_question` — calls Groq with topic + difficulty + seen questions (prevents repeats); resets `student_answer` to `""`
-- `evaluate_answer` — calls Groq with JSON mode; returns `{correct, explanation, key_concept}`
+- `generate_question` — calls GitHub Models (GPT-4o-mini) with topic + difficulty + seen questions (prevents repeats); resets `student_answer` to `""`
+- `evaluate_answer` — calls GitHub Models with JSON mode; returns `{reasoning, correct, explanation, key_concept}` — `reasoning` is a chain-of-thought field the model fills before deciding `correct`
 - `generate_feedback` — **all difficulty/streak logic is pure Python here, not delegated to the LLM**. The LLM only writes the human-readable feedback text. Escalates (difficulty +1, streak reset to 0) when `streak >= 3` correct; scaffolds (difficulty -1) on wrong; resets streak to 0 on wrong.
+
+All LLM calls go through `_chat()` in `nodes.py`, which wraps the OpenAI SDK pointed at `https://models.inference.ai.azure.com` and retries up to 3× on `RateLimitError` (via `tenacity`).
 
 **State** (`app/agent/state.py`): `GraphState` is a `TypedDict` with 11 fields. The API layer builds a full state dict from the persisted session before each `invoke()` call, then writes updated fields back to Cosmos after.
 
-**Prompts** (`app/agent/prompts.py`): Three module-level string constants. The evaluator prompt enforces a strict JSON structure. The feedback prompt intentionally does NOT include `NEXT_ACTION` — that logic was moved to Python.
+**Prompts** (`app/agent/prompts.py`): Three module-level string constants, all written for **Grade 5-6 students (ages 10-12)**. The question generator maps difficulty 1-5 to question styles (recall → creative application). The evaluator prompt enforces a strict JSON structure and uses chain-of-thought reasoning (`reasoning` field first). The feedback prompt intentionally does NOT include `NEXT_ACTION` — that logic was moved to Python. Feedback tone rules: no "incorrect"/"wrong", prefer "not quite"/"almost there"; correct answers addressed directly in second person without generic openers.
 
 ### Backend — API layer
 
@@ -93,8 +95,8 @@ PrimeReact components only. PrimeFlex utility classes for layout (`flex`, `justi
 All backend config is in `app/config.py` via `pydantic-settings`. The `.env` file lives at the repo root (two levels above `app/`). Settings are imported as the singleton `settings` everywhere.
 
 ```
-GROQ_API_KEY=...
-GROQ_MODEL=llama-3.1-8b-instant
+GITHUB_TOKEN=...           # GitHub Models PAT (scope: models:inference)
+LLM_MODEL=gpt-4o-mini      # any model available on models.inference.ai.azure.com
 ENV=local
 FRONTEND_URL=http://localhost:3000
 COSMOS_ENDPOINT=https://localhost:8081

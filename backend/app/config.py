@@ -18,6 +18,11 @@ class Settings(BaseSettings):
     cosmos_database: str = "adaptive-quiz"
     disable_ssl_verify: bool = True
 
+    # JWT
+    jwt_secret: str
+    jwt_algorithm: str = "HS256"
+    jwt_expire_minutes: int = 60 * 24 * 7   # 7 days
+
     class Config:
         env_file = Path(__file__).resolve().parents[2] / ".env"
         env_file_encoding = "utf-8"
